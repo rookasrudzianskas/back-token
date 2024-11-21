@@ -1,41 +1,43 @@
-import {StreamClient, UserRequest} from '@stream-io/node-sdk';
-import {NextResponse} from "next/server";
+import { StreamClient, UserRequest } from '@stream-io/node-sdk';
+import { NextResponse } from "next/server";
 
 const apiKey = process.env.API_GET_STREAM_PUBLISHABLE_KEY;
 const secret = process.env.API_GET_STREAM_SECRET_KEY;
 
-if(!apiKey || !secret) {
-  return res.status(500).json({ error: "Missing API Key" });
+if (!apiKey || !secret) {
+  throw new Error("Missing API Key or Secret Key in environment variables");
 }
 
 const client = new StreamClient(apiKey, secret);
 
-export async function POST(req: Request, res: Response) {
-  const { userId, name, image, email } = await req.json();
+export async function POST(req: Request) {
+  try {
+    const { userId, name, image, email } = await req.json();
 
-  const newUser: UserRequest = {
-    id: userId,
-    role: 'user',
-    name,
-    image,
-    custom: {
-      email,
+    if (!userId || !name || !image || !email) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
-  };
 
-  await client.upsertUsers([newUser]);
+    const newUser: UserRequest = {
+      id: userId,
+      role: 'user',
+      name,
+      image,
+      custom: {
+        email,
+      },
+    };
 
-  const validity = 60 * 60 * 24 * 7;
+    await client.upsertUsers([newUser]);
 
-  const token = client.generateUserToken({
-    user_id: userId,
-    validity_in_seconds: validity,
-  });
+    const validity = 60 * 60 * 24 * 7; // 1 week
+    const token = client.generateUserToken(userId, { exp: Math.floor(Date.now() / 1000) + validity });
 
-  console.log("Generating token for user:", userId, 'and validity:', validity);
+    console.log("Generating token for user:", userId, 'with validity:', validity);
 
-  return NextResponse.json({
-    token
-  });
-
+    return NextResponse.json({ token });
+  } catch (error) {
+    console.error("Error processing POST request:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }
