@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     await client.upsertUsers([newUser]);
 
     const validity = 60 * 60 * 24 * 7; // 1 week
-    const token = client.generateUserToken(userId, { exp: Math.floor(Date.now() / 1000) + validity });
+    const token = client.createUserToken(userId, validity);
 
     console.log("Generating token for user:", userId, 'with validity:', validity);
 
